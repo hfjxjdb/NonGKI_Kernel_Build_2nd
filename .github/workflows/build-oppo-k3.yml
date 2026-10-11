@@ -1,4 +1,4 @@
-name: Build OPPO K3 (SDM710 - 4.9)
+name: Build OPPO K3 (SDM710 - ReSukiSU)
 
 on:
   workflow_call:
@@ -12,7 +12,7 @@ env:
   CUSTOM_CMDS : ""
   EXTRA_CMDS : ""
 
-  # ⚠️ 内核源码（已替换为你 Fork 的仓库）
+  # ⚠️ 内核源码（你 Fork 的仓库）
   KERNEL_SOURCE : "https://github.com/hfjxjdb/LawRun_realme_sdm710.git"
   KERNEL_BRANCH : "master"
 
@@ -26,19 +26,19 @@ env:
   GCC_32_BRANCH : "lineage-19.1"
 
   DEFCONFIG_SOURCE: ""
-  # ⚠️ 你上传的配置文件名称
+  # ⚠️ 你的配置文件名称
   DEFCONFIG_NAME : "sdm710-perf_defconfig"
   DEFCONFIG_ORIGIN_IMAGE: ""
   DEFCONFIG_FROM_BOOT: false
 
-  KERNELSU_SOURCE : ""
-  KERNELSU_BRANCH : ""
+  # ⚠️ 切换为 ReSukiSU
+  KERNELSU_SOURCE : "https://github.com/Yakayna/ReSukiSU.git"
+  KERNELSU_BRANCH : "main"
 
-  # ⚠️ SukiSU Ultra 自动获取配置
   KERNELSU_AUTO_GET : "true"
-  KERNELSU_AUTO_FORK : "sukisu"
+  KERNELSU_AUTO_FORK : "resukisu" # 如果 Action 不支持这个关键词，会自动从上面拉取源码
 
-  # ⚠️ 开启 SUSFS 与 KPM
+  # ⚠️ SUSFS 设置（如果编译失败，请临时改为 false）
   SUSFS_ENABLE : true
   SUSFS_FIXED : false
 
@@ -51,7 +51,7 @@ env:
   NEED_DTBO : false
   NEED_SAFE_DTBO : false
 
-  ROM_TEXT : "aosp_a14" # 改成你当前用的系统版本，比如 ColorOS 或 AOSP
+  ROM_TEXT : "coloros_11" # 你的系统版本
 
   # Other env
   PYTHON_VERSION: "2"
@@ -61,7 +61,7 @@ env:
 
   KERNELSU_METHOD: "shell"
 
-  # ⚠️ 补丁（暂时留空，如果后面遇到 4.9 的 KPM 报错再配置）
+  # ⚠️ 补丁源（留空）
   PATCHES_SOURCE: "" 
   PATCHES_BRANCH: "" 
 
@@ -74,7 +74,7 @@ env:
 
   HOOK_METHOD: "syscall" # 4.9 内核推荐用 syscall
 
-  # ⚠️ KPM 核心配置（你要的功能）
+  # ⚠️ KPM 配置（核心需求）
   KPM_ENABLE: true 
   KPM_INLINE: true 
   KPM_KPATCH_NEXT: "false"
@@ -87,6 +87,7 @@ env:
   GENERATE_CHIP: "qcom" 
 
   BUILD_DEBUGGER: "false" 
+  # 核心救命选项：跳过所有打不上的补丁，防止卡在 ksud.c
   SKIP_PATCH: "true" 
 
   BUILD_OTHER_CONFIG: "false"
@@ -122,17 +123,16 @@ jobs:
 
       - name: 🪛 Extra Kernel Options
         run: |
-          # 1. SukiSU Ultra 的 syscall 挂钩必须开启
+          # 1. 为 ReSukiSU 开启 syscall 挂钩
           cd $GITHUB_WORKSPACE/device_kernel
           echo "CONFIG_KSU_TAMPER_SYSCALL_TABLE=y" >> ./arch/arm64/configs/sdm710-perf_defconfig
           
-          # 2. AnyKernel3 自动同步系统版本，防止刷入后版本号错乱
-          # 注意：这里替换成了 sdm710-perf_defconfig
+          # 2. AnyKernel3 自动同步版本，适配 ColorOS 11 (Android 11)
           sed -i '/^\. tools\/ak3-core\.sh;/a \
           \
           patch_os_version() {\
             ui_print " " "Syncing OS version and patch level...";\
-            local prop="/system/build.prop";\
+            local prop="/product/build.prop";\
             local TARGET_VER="";\
             local TARGET_PATCH="";\
             if [ -f "$prop" ]; then\
@@ -156,8 +156,8 @@ jobs:
           
           sed -i 's/^dump_boot;.*/&\n\npatch_os_version;/' AnyKernel3/anykernel.sh
           
-          # K3 出厂是安卓9，这里改成 9.0.0
-          sed -i 's/^supported\.versions=.*/supported.versions=9.0.0/' AnyKernel3/anykernel.sh
+          # K3 对应 ColorOS 11 (Android 11)，版本号改为 11.0.0
+          sed -i 's/^supported\.versions=.*/supported.versions=11.0.0/' AnyKernel3/anykernel.sh
 
       - name: 🧰 Patch Kernel of Re:Kernel
         uses: ./.github/workflows/patch-rekernel
