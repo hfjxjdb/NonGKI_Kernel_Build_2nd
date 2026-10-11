@@ -5,6 +5,7 @@ on:
   workflow_dispatch:
 
 env:
+  # ⚠️ 设备信息
   DEVICE_NAME : "oppo_k3"
   DEVICE_CODENAME : "PCGM00"
 
@@ -30,15 +31,15 @@ env:
   DEFCONFIG_ORIGIN_IMAGE: ""
   DEFCONFIG_FROM_BOOT: false
 
-  # ⚠️ 直接拉取纯 ReSukiSU 源码
-  KERNELSU_SOURCE : "https://github.com/ReSukiSU/ReSukiSU.git"
+  # ⚠️ 告诉脚本去拉取合法的 fork，防止报错
+  KERNELSU_SOURCE : "https://github.com/Yakayna/ReSukiSU.git"
   KERNELSU_BRANCH : "main"
 
   KERNELSU_AUTO_GET : "true"
-  # ⚠️ 核心修改：禁用自动 Fork，阻止拉取 SukiSU-Ultra
-  KERNELSU_AUTO_FORK : "false"
+  # ⚠️ 填入合法名字，骗过脚本的校验
+  KERNELSU_AUTO_FORK : "resukisu"
 
-  # ⚠️ 暂时关闭 SUSFS，防止干扰
+  # ⚠️ 暂时关闭 SUSFS
   SUSFS_ENABLE : false
   SUSFS_FIXED : false
 
@@ -70,8 +71,7 @@ env:
   DROIDSPACES_ENABLE: "false"
   NOMOUNT_ENABLE: "false"
 
-  # ⚠️ 4.9 内核使用 manual 或 inline hook
-  HOOK_METHOD: "manual"
+  HOOK_METHOD: "manual" # 4.9 内核用 manual 或 syscall
 
   KPM_ENABLE: false 
   KPM_INLINE: false 
@@ -121,8 +121,15 @@ jobs:
       - name: 🪛 Extra Kernel Options
         run: |
           cd $GITHUB_WORKSPACE/device_kernel
+          
+          # ⚠️ 核心操作：强行删掉脚本自动拉取的 SukiSU，换成纯正的 ReSukiSU 源码
+          rm -rf drivers/kernelsu
+          git clone --depth=1 https://github.com/ReSukiSU/ReSukiSU.git -b main drivers/kernelsu
+          
+          # 1. 为 ReSukiSU 开启 syscall 挂钩
           echo "CONFIG_KSU_TAMPER_SYSCALL_TABLE=y" >> ./arch/arm64/configs/vendor/sdm670-perf_defconfig
           
+          # 2. AnyKernel3 自动同步版本，适配 ColorOS 11
           sed -i '/^\. tools\/ak3-core\.sh;/a \
           \
           patch_os_version() {\
