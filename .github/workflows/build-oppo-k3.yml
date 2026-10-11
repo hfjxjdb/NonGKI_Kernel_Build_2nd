@@ -12,7 +12,7 @@ env:
   CUSTOM_CMDS : ""
   EXTRA_CMDS : ""
 
-  # ⚠️ 内核源码（你 Fork 的仓库）
+  # ⚠️ 内核源码（LawRun 适配 SDM710，兼容性较好）
   KERNEL_SOURCE : "https://github.com/hfjxjdb/LawRun_realme_sdm710.git"
   KERNEL_BRANCH : "master"
 
@@ -26,19 +26,19 @@ env:
   GCC_32_BRANCH : "lineage-19.1"
 
   DEFCONFIG_SOURCE: ""
-  # ⚠️ 你的配置文件名称
-  DEFCONFIG_NAME : "sdm710-perf_defconfig"
+  # ⚠️ 你的配置文件名称（请务必去源码的 arch/arm64/configs/ 目录下核对准确名字）
+  DEFCONFIG_NAME : "vendor/sdm710-perf_defconfig"
   DEFCONFIG_ORIGIN_IMAGE: ""
   DEFCONFIG_FROM_BOOT: false
 
-  # ⚠️ 切换为 ReSukiSU
+  # ⚠️ 切换为 ReSukiSU（Yakayna 维护的 Non-GKI 分支）
   KERNELSU_SOURCE : "https://github.com/Yakayna/ReSukiSU.git"
   KERNELSU_BRANCH : "main"
 
   KERNELSU_AUTO_GET : "true"
-  KERNELSU_AUTO_FORK : "resukisu" # 如果 Action 不支持这个关键词，会自动从上面拉取源码
+  KERNELSU_AUTO_FORK : "resukisu"
 
-  # ⚠️ SUSFS 设置（如果编译失败，请临时改为 false）
+  # ⚠️ SUSFS 设置（如果编译失败或开机卡死，请临时改为 false）
   SUSFS_ENABLE : true
   SUSFS_FIXED : false
 
@@ -74,7 +74,7 @@ env:
 
   HOOK_METHOD: "syscall" # 4.9 内核推荐用 syscall
 
-  # ⚠️ KPM 配置（核心需求）
+  # ⚠️ KPM 配置（核心需求，如果死机请关掉）
   KPM_ENABLE: true 
   KPM_INLINE: true 
   KPM_KPATCH_NEXT: "false"
@@ -91,7 +91,8 @@ env:
   SKIP_PATCH: "true" 
 
   BUILD_OTHER_CONFIG: "false"
-  MERGE_CONFIG_FILES: "vendor/debugfs.config,vendor/lahaina_QGKI.config"
+  # ⚠️ 已修正：删除了 lahaina 相关配置，防止编译报错
+  MERGE_CONFIG_FILES: "vendor/debugfs.config" 
 
   FREE_MORE_SPACE: "false" 
 
@@ -105,8 +106,9 @@ jobs:
       CCACHE_HARDLINK: "true"
 
     steps:
+      # ⚠️ 已修正：v6 不存在，改为 v4
       - name: ⏰ Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
 
       - name: ⌛️ Compilation environment preparation
         uses: ./.github/workflows/build-env
@@ -123,11 +125,12 @@ jobs:
 
       - name: 🪛 Extra Kernel Options
         run: |
-          # 1. 为 ReSukiSU 开启 syscall 挂钩
+          # 1. 为 ReSukiSU 开启 syscall 挂钩（请核对下方文件名与上方 DEFCONFIG_NAME 一致）
           cd $GITHUB_WORKSPACE/device_kernel
-          echo "CONFIG_KSU_TAMPER_SYSCALL_TABLE=y" >> ./arch/arm64/configs/sdm710-perf_defconfig
+          echo "CONFIG_KSU_TAMPER_SYSCALL_TABLE=y" >> ./arch/arm64/configs/vendor/sdm710-perf_defconfig
           
           # 2. AnyKernel3 自动同步版本，适配 ColorOS 11 (Android 11)
+          # 注意：请确保你的 AnyKernel3 目录已经在当前工作区被正确拉取
           sed -i '/^\. tools\/ak3-core\.sh;/a \
           \
           patch_os_version() {\
