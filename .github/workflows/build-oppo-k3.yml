@@ -1,0 +1,7 @@
+KERNEL_SOURCE: "negrroo/LawRun_realme_sdm710"  # 你找到的SDM710内核源码
+KERNEL_BRANCH: "主分支名"  # 去看看这个源码是main还是master
+KSU_TYPE: "SukiSU-Ultra"
+KSU_BRANCH: "nongki"       # 4.9内核必须用nongki
+ENABLE_KPM: "true"         # 开启KPM支持
+USE_SUSFS: "true"          # 如果你要隐藏Root，建议开启concurrency:
+  
