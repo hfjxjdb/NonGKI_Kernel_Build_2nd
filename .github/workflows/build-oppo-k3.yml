@@ -1,7 +1,181 @@
-KERNEL_SOURCE: "negrroo/LawRun_realme_sdm710"  # 你找到的SDM710内核源码
-KERNEL_BRANCH: "主分支名"  # 去看看这个源码是main还是master
-KSU_TYPE: "SukiSU-Ultra"
-KSU_BRANCH: "nongki"       # 4.9内核必须用nongki
-ENABLE_KPM: "true"         # 开启KPM支持
-USE_SUSFS: "true"          # 如果你要隐藏Root，建议开启concurrency:
-  
+name: Build OPPO K3 (SDM710 - 4.9)
+
+on:
+  workflow_call:
+  workflow_dispatch:
+
+env:
+  # ⚠️ 设备信息
+  DEVICE_NAME : "oppo_k3"
+  DEVICE_CODENAME : "PCGM00"
+
+  CUSTOM_CMDS : ""
+  EXTRA_CMDS : ""
+
+  # ⚠️ 内核源码（已替换为你 Fork 的仓库）
+  KERNEL_SOURCE : "https://github.com/hfjxjdb/LawRun_realme_sdm710.git"
+  KERNEL_BRANCH : "master"
+
+  CLANG_SOURCE : ""
+  CLANG_BRANCH : ""
+
+  GCC_GNU : false
+  GCC_64_SOURCE : "https://github.com/LineageOS/android_prebuilts_gcc_linux-x86_aarch64_aarch64-linux-android-4.9.git"
+  GCC_64_BRANCH : "lineage-19.1"
+  GCC_32_SOURCE : "https://github.com/LineageOS/android_prebuilts_gcc_linux-x86_arm_arm-linux-androideabi-4.9.git"
+  GCC_32_BRANCH : "lineage-19.1"
+
+  DEFCONFIG_SOURCE: ""
+  # ⚠️ 你上传的配置文件名称
+  DEFCONFIG_NAME : "sdm710-perf_defconfig"
+  DEFCONFIG_ORIGIN_IMAGE: ""
+  DEFCONFIG_FROM_BOOT: false
+
+  KERNELSU_SOURCE : ""
+  KERNELSU_BRANCH : ""
+
+  # ⚠️ SukiSU Ultra 自动获取配置
+  KERNELSU_AUTO_GET : "true"
+  KERNELSU_AUTO_FORK : "sukisu"
+
+  # ⚠️ 开启 SUSFS 与 KPM
+  SUSFS_ENABLE : true
+  SUSFS_FIXED : false
+
+  # ⚠️ AK3 打包模板
+  AK3_SOURCE : "https://github.com/osm0sis/AnyKernel3.git"
+  AK3_BRANCH : "master"
+
+  BOOT_SOURCE : ""
+
+  NEED_DTBO : false
+  NEED_SAFE_DTBO : false
+
+  ROM_TEXT : "aosp_a14" # 改成你当前用的系统版本，比如 ColorOS 或 AOSP
+
+  # Other env
+  PYTHON_VERSION: "2"
+
+  PACK_METHOD: "AnyKernel3"
+  PACK_KMODULES: "false"
+
+  KERNELSU_METHOD: "shell"
+
+  # ⚠️ 补丁（暂时留空，如果后面遇到 4.9 的 KPM 报错再配置）
+  PATCHES_SOURCE: "" 
+  PATCHES_BRANCH: "" 
+
+  SUSFS_FOLDER_FIXED: ""
+  SUSFS_PATCH_FIXED: ""
+
+  REKERNEL_ENABLE: "false"
+  DROIDSPACES_ENABLE: "false"
+  NOMOUNT_ENABLE: "false"
+
+  HOOK_METHOD: "syscall" # 4.9 内核推荐用 syscall
+
+  # ⚠️ KPM 核心配置（你要的功能）
+  KPM_ENABLE: true 
+  KPM_INLINE: true 
+  KPM_KPATCH_NEXT: "false"
+  KPM_PATCH_SOURCE: "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU_patch/refs/heads/main/kpm/patch_linux"
+
+  BASEBAND_GUARD_ENABLE: "false"
+  BASEBAND_GUARD_BOOT: "false"
+
+  GENERATE_DTB: "false"
+  GENERATE_CHIP: "qcom" 
+
+  BUILD_DEBUGGER: "false" 
+  SKIP_PATCH: "false" 
+
+  BUILD_OTHER_CONFIG: "false"
+  MERGE_CONFIG_FILES: "vendor/debugfs.config,vendor/lahaina_QGKI.config"
+
+  FREE_MORE_SPACE: "false" 
+
+jobs:
+  build-kernel:
+    name: OPPO K3 (SDM710)
+    runs-on: ubuntu-22.04
+    env:
+      CCACHE_COMPILERCHECK: "%compiler% -dumpmachine; %compiler% -dumpversion"
+      CCACHE_NOHASHDIR: "true"
+      CCACHE_HARDLINK: "true"
+
+    steps:
+      - name: ⏰ Checkout repository
+        uses: actions/checkout@v6
+
+      - name: ⌛️ Compilation environment preparation
+        uses: ./.github/workflows/build-env
+
+      - name: ⚙️ Get necessary tools
+        uses: ./.github/workflows/build-ready
+
+      - name: 🪝 Patch Kernel of SUSFS
+        uses: ./.github/workflows/patch-susfs
+
+      - name: 🔗 Patch for no-kprobe
+        run: |
+          # Needn't manual hook.
+
+      - name: 🪛 Extra Kernel Options
+        run: |
+          # 1. SukiSU Ultra 的 syscall 挂钩必须开启
+          cd $GITHUB_WORKSPACE/device_kernel
+          echo "CONFIG_KSU_TAMPER_SYSCALL_TABLE=y" >> ./arch/arm64/configs/sdm710-perf_defconfig
+          
+          # 2. AnyKernel3 自动同步系统版本，防止刷入后版本号错乱
+          # 注意：这里替换成了 sdm710-perf_defconfig
+          sed -i '/^\. tools\/ak3-core\.sh;/a \
+          \
+          patch_os_version() {\
+            ui_print " " "Syncing OS version and patch level...";\
+            local prop="/system/build.prop";\
+            local TARGET_VER="";\
+            local TARGET_PATCH="";\
+            if [ -f "$prop" ]; then\
+              TARGET_VER=$(file_getprop "$prop" ro.build.version.release);\
+              TARGET_PATCH=$(file_getprop "$prop" ro.build.version.security_patch | grep -oE '\''^[0-9]{4}-[0-9]{2}'\'');\
+            else\
+              ui_print "- Warning: $prop not found!";\
+            fi\
+            if [ -f "$SPLITIMG/header" ]; then\
+              if [ -n "$TARGET_VER" ] && [ -n "$TARGET_PATCH" ]; then\
+                ui_print "- Updating header: OS $TARGET_VER (Patch: $TARGET_PATCH)";\
+                sed -i "s/^os_version=.*/os_version=$TARGET_VER/" "$SPLITIMG/header";\
+                sed -i "s/^os_patch_level=.*/os_patch_level=$TARGET_PATCH/" "$SPLITIMG/header";\
+              else\
+                ui_print "- Warning: Could not find valid version/patch info in $prop.";\
+              fi\
+            else\
+              ui_print "- Warning: header file not found, skipped.";\
+            fi\
+          }' AnyKernel3/anykernel.sh
+          
+          sed -i 's/^dump_boot;.*/&\n\npatch_os_version;/' AnyKernel3/anykernel.sh
+          
+          # K3 出厂是安卓9，这里改成 9.0.0
+          sed -i 's/^supported\.versions=.*/supported.versions=9.0.0/' AnyKernel3/anykernel.sh
+
+      - name: 🧰 Patch Kernel of Re:Kernel
+        uses: ./.github/workflows/patch-rekernel
+
+      - name: 💿 Patch Kernel of Droidspaces
+        uses: ./.github/workflows/patch-droidspaces
+
+      - name: 🔒 Patch Kernel of Baseband Guard
+        uses: ./.github/workflows/patch-baseband-guard
+
+      - name: 🛡️ Patch Kernel of NoMount
+        uses: ./.github/workflows/patch-nomount
+
+      - name: 🚀 Build Process
+        uses: ./.github/workflows/build-process
+
+      - name: 🔩 Pack Process
+        uses: ./.github/workflows/pack-process
+
+      - name: ✏️ Upload Artifacts
+        uses: ./.github/workflows/upload-files
