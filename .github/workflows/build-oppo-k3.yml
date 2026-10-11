@@ -5,14 +5,13 @@ on:
   workflow_dispatch:
 
 env:
-  # ⚠️ 设备信息
   DEVICE_NAME : "oppo_k3"
   DEVICE_CODENAME : "PCGM00"
 
   CUSTOM_CMDS : ""
   EXTRA_CMDS : ""
 
-  # ⚠️ 内核源码：换成 OPPO 官方，补丁兼容性更高
+  # ⚠️ 内核源码：OPPO 官方
   KERNEL_SOURCE : "https://github.com/oppo-source/android_kernel_oppo_sdm710"
   KERNEL_BRANCH : "oppo/sdm710_r_11.0_reno"
 
@@ -31,14 +30,15 @@ env:
   DEFCONFIG_ORIGIN_IMAGE: ""
   DEFCONFIG_FROM_BOOT: false
 
-  # ⚠️ 切换为 ReSukiSU
-  KERNELSU_SOURCE : "https://github.com/Yakayna/ReSukiSU.git"
+  # ⚠️ 直接拉取纯 ReSukiSU 源码
+  KERNELSU_SOURCE : "https://github.com/ReSukiSU/ReSukiSU.git"
   KERNELSU_BRANCH : "main"
 
   KERNELSU_AUTO_GET : "true"
-  KERNELSU_AUTO_FORK : "resukisu"
+  # ⚠️ 核心修改：禁用自动 Fork，阻止拉取 SukiSU-Ultra
+  KERNELSU_AUTO_FORK : "false"
 
-  # ⚠️ 为防止编译报错，先关闭 SUSFS
+  # ⚠️ 暂时关闭 SUSFS，防止干扰
   SUSFS_ENABLE : false
   SUSFS_FIXED : false
 
@@ -53,7 +53,6 @@ env:
 
   ROM_TEXT : "coloros_11"
 
-  # Other env
   PYTHON_VERSION: "2"
 
   PACK_METHOD: "AnyKernel3"
@@ -61,7 +60,6 @@ env:
 
   KERNELSU_METHOD: "shell"
 
-  # ⚠️ 补丁源（留空）
   PATCHES_SOURCE: "" 
   PATCHES_BRANCH: "" 
 
@@ -72,9 +70,9 @@ env:
   DROIDSPACES_ENABLE: "false"
   NOMOUNT_ENABLE: "false"
 
-  HOOK_METHOD: "syscall" # 4.9 内核推荐用 syscall
+  # ⚠️ 4.9 内核使用 manual 或 inline hook
+  HOOK_METHOD: "manual"
 
-  # ⚠️ 为防止编译报错，先关闭 KPM
   KPM_ENABLE: false 
   KPM_INLINE: false 
   KPM_KPATCH_NEXT: "false"
@@ -87,7 +85,6 @@ env:
   GENERATE_CHIP: "qcom" 
 
   BUILD_DEBUGGER: "false" 
-  # 核心救命选项：跳过所有打不上的补丁
   SKIP_PATCH: "true" 
 
   BUILD_OTHER_CONFIG: "false"
@@ -123,11 +120,9 @@ jobs:
 
       - name: 🪛 Extra Kernel Options
         run: |
-          # 1. 为 ReSukiSU 开启 syscall 挂钩
           cd $GITHUB_WORKSPACE/device_kernel
           echo "CONFIG_KSU_TAMPER_SYSCALL_TABLE=y" >> ./arch/arm64/configs/vendor/sdm670-perf_defconfig
           
-          # 2. AnyKernel3 自动同步版本，适配 ColorOS 11
           sed -i '/^\. tools\/ak3-core\.sh;/a \
           \
           patch_os_version() {\
