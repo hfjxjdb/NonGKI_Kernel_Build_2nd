@@ -12,9 +12,9 @@ env:
   CUSTOM_CMDS : ""
   EXTRA_CMDS : ""
 
-  # ⚠️ 内核源码（LawRun 适配 SDM710，兼容性较好）
-  KERNEL_SOURCE : "https://github.com/hfjxjdb/LawRun_realme_sdm710.git"
-  KERNEL_BRANCH : "master"
+  # ⚠️ 内核源码：换成 OPPO 官方，补丁兼容性更高
+  KERNEL_SOURCE : "https://github.com/oppo-source/android_kernel_oppo_sdm710"
+  KERNEL_BRANCH : "oppo/sdm710_r_11.0_reno"
 
   CLANG_SOURCE : ""
   CLANG_BRANCH : ""
@@ -26,20 +26,20 @@ env:
   GCC_32_BRANCH : "lineage-19.1"
 
   DEFCONFIG_SOURCE: ""
-  # ⚠️ 你的配置文件名称（请务必去源码的 arch/arm64/configs/ 目录下核对准确名字）
-  DEFCONFIG_NAME : "vendor/sdm710-perf_defconfig"
+  # ⚠️ 官方源码没有 sdm710 配置文件，改用同源的 sdm670
+  DEFCONFIG_NAME : "vendor/sdm670-perf_defconfig"
   DEFCONFIG_ORIGIN_IMAGE: ""
   DEFCONFIG_FROM_BOOT: false
 
-  # ⚠️ 切换为 ReSukiSU（Yakayna 维护的 Non-GKI 分支）
+  # ⚠️ 切换为 ReSukiSU
   KERNELSU_SOURCE : "https://github.com/Yakayna/ReSukiSU.git"
   KERNELSU_BRANCH : "main"
 
   KERNELSU_AUTO_GET : "true"
   KERNELSU_AUTO_FORK : "resukisu"
 
-  # ⚠️ SUSFS 设置（如果编译失败或开机卡死，请临时改为 false）
-  SUSFS_ENABLE : true
+  # ⚠️ 为防止编译报错，先关闭 SUSFS
+  SUSFS_ENABLE : false
   SUSFS_FIXED : false
 
   # ⚠️ AK3 打包模板
@@ -51,7 +51,7 @@ env:
   NEED_DTBO : false
   NEED_SAFE_DTBO : false
 
-  ROM_TEXT : "coloros_11" # 你的系统版本
+  ROM_TEXT : "coloros_11"
 
   # Other env
   PYTHON_VERSION: "2"
@@ -74,9 +74,9 @@ env:
 
   HOOK_METHOD: "syscall" # 4.9 内核推荐用 syscall
 
-  # ⚠️ KPM 配置（核心需求，如果死机请关掉）
-  KPM_ENABLE: true 
-  KPM_INLINE: true 
+  # ⚠️ 为防止编译报错，先关闭 KPM
+  KPM_ENABLE: false 
+  KPM_INLINE: false 
   KPM_KPATCH_NEXT: "false"
   KPM_PATCH_SOURCE: "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU_patch/refs/heads/main/kpm/patch_linux"
 
@@ -87,11 +87,10 @@ env:
   GENERATE_CHIP: "qcom" 
 
   BUILD_DEBUGGER: "false" 
-  # 核心救命选项：跳过所有打不上的补丁，防止卡在 ksud.c
+  # 核心救命选项：跳过所有打不上的补丁
   SKIP_PATCH: "true" 
 
   BUILD_OTHER_CONFIG: "false"
-  # ⚠️ 已修正：删除了 lahaina 相关配置，防止编译报错
   MERGE_CONFIG_FILES: "vendor/debugfs.config" 
 
   FREE_MORE_SPACE: "false" 
@@ -106,7 +105,6 @@ jobs:
       CCACHE_HARDLINK: "true"
 
     steps:
-      # ⚠️ 已修正：v6 不存在，改为 v4
       - name: ⏰ Checkout repository
         uses: actions/checkout@v4
 
@@ -125,12 +123,11 @@ jobs:
 
       - name: 🪛 Extra Kernel Options
         run: |
-          # 1. 为 ReSukiSU 开启 syscall 挂钩（请核对下方文件名与上方 DEFCONFIG_NAME 一致）
+          # 1. 为 ReSukiSU 开启 syscall 挂钩
           cd $GITHUB_WORKSPACE/device_kernel
-          echo "CONFIG_KSU_TAMPER_SYSCALL_TABLE=y" >> ./arch/arm64/configs/vendor/sdm710-perf_defconfig
+          echo "CONFIG_KSU_TAMPER_SYSCALL_TABLE=y" >> ./arch/arm64/configs/vendor/sdm670-perf_defconfig
           
-          # 2. AnyKernel3 自动同步版本，适配 ColorOS 11 (Android 11)
-          # 注意：请确保你的 AnyKernel3 目录已经在当前工作区被正确拉取
+          # 2. AnyKernel3 自动同步版本，适配 ColorOS 11
           sed -i '/^\. tools\/ak3-core\.sh;/a \
           \
           patch_os_version() {\
@@ -159,7 +156,6 @@ jobs:
           
           sed -i 's/^dump_boot;.*/&\n\npatch_os_version;/' AnyKernel3/anykernel.sh
           
-          # K3 对应 ColorOS 11 (Android 11)，版本号改为 11.0.0
           sed -i 's/^supported\.versions=.*/supported.versions=11.0.0/' AnyKernel3/anykernel.sh
 
       - name: 🧰 Patch Kernel of Re:Kernel
